@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>bomberman</title>
+
+	<style type="text/css">
+		canvas {
+			width: 75%;
+		}	
+	</style>
+
+	<script type="text/javascript">
+
+    const SPACE       = 0;
+    const COIN        = 2;
+    const WALL        = 3;
+    const BREAKABLE   = 4;
+    const SPAWN_POINT = 5
+
+    const TILE_STYLE = {
+    	[SPACE]:     "rgba(255, 255, 255, 0.0)",
+    	[COIN]:      "rgba(255, 200, 16, 1.0)",
+    	[WALL]:      "rgba(128, 128, 128, 1.0)",
+    	[BREAKABLE]: "rgba(200, 0, 200, 1.0)",
+    	[SPAWN_POINT]: "rgba(255, 255, 255, 0.0)"
+    }
+
+	let level1 = [0, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0,
+	              0, 3, 4, 3, 0, 3, 4, 3, 0, 3, 4, 3, 0, 3, 0,
+	              0, 0, 0, 0, 4, 0, 4, 0, 4, 2, 0, 0, 0, 0, 4,
+	              0, 3, 4, 3, 0, 3, 0, 3, 0, 3, 4, 3, 0, 3, 0,
+	              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	              0, 3, 0, 3, 0, 3, 0, 3, 0, 3, 0, 3, 0, 3, 0,
+	              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	              0, 3, 0, 3, 0, 3, 5, 3, 0, 3, 0, 3, 0, 3, 0,
+	              0, 0, 0, 0, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0,
+	              0, 3, 0, 3, 4, 3, 0, 3, 0, 3, 0, 3, 0, 3, 0,
+	              0, 0, 0, 0, 4, 4, 0, 4, 4, 0, 0, 0, 0, 0, 0,
+	              0, 3, 0, 3, 0, 3, 5, 3, 0, 3, 0, 3, 0, 3, 0,
+	              0, 0, 0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0,
+	              0, 3, 0, 3, 0, 3, 4, 3, 4, 3, 0, 3, 0, 3, 0,
+	              5, 0, 0, 0, 0, 0, 0, 0, 5, 2, 2, 2, 2, 2, 0];
+
+	window.onload = function(){
+		let canvas = document.getElementById('ct');
+		canvas.width = 300;
+		canvas.height = 300;
+		let ctx = canvas.getContext('2d');
+
+		let width = canvas.width;
+		let height = canvas.height;
+
+		let tile_width = tile_height = 20;
+
+		let player_x = player_y = 0;
+		let start_time = +(new Date());
+
+		let tiles_x = parseInt(width/tile_width);
+		let tiles_y = parseInt(height/tile_height);
+		console.log(tiles_x);
+
+		let bombs = {};
+		let fire = {};
+		let enemies = {};
+
+		let bomb_explosion_time    = 4.0;
+		let bomb_exlosion_distance = 1;
+		let bomb_count             = 1;
+
+		let fire_ttl = 1.0;
+
+		let enemy_ai_time = 0.8;
+		let enemy_spawn_chance = 0.05;
+
+		let keydown = {};
+		window.onkeydown = function(evt){
+			keydown[evt.key] = true
+		}
+
+		function getIndex(x, y) {
+			return x + (y * tiles_x);
+		}
+
+		function getCoords(index) { 
+			return [index % tiles_x, Math.floor(index / tiles_x)]; 
+		}
+
+		function updateAndRender() {
+			let current_time = +(new Date());
+
+			let nx = player_x, ny = player_y;
+
+			if ( keydown['a'] ) {
+				nx -= 1;				
+			}
+			if ( keydown['d'] ) {
+				nx += 1;
+			}
+			if ( keydown['w'] ) {
+				ny -= 1;
+			}
+			if ( keydown['s'] ) {
+				ny += 1;
+			}
+
+			if ( keydown['j'] ) {
+				if ( Object.keys(bombs).length < bomb_count ) {
+					if ( ! bombs[getIndex(player_x, player_y)] ) {
+						bombs[getIndex(player_x, player_y)] = +(new Date());
+					}
+				}
+			}
+
+
+			let next_space = level1[getIndex(nx, ny)];
+			switch (next_space) {
+				case COIN:
+					bomb_count += 1;
+					bomb_exlosion_distance += 1;
+					level1[getIndex(nx, ny)] = SPACE;
+
+				case SPACE:
+				case SPAWN_POINT:
+					if ( nx >= 0 && nx < tiles_x )
+						player_x = nx;
+					if ( ny >= 0 && ny < tiles_y )
+						player_y = ny;
+					break;
+				
+			}
+
+			ctx.fillStyle = "#000";
+			ctx.fillRect(0, 0, width, height);
+
+			Object.keys(bombs).forEach(function(b, i) {
+				ctx.save();
+				let p = getCoords(b)
+				let time = bombs[b];
+
+				let alive = (current_time - time);
+				let blink = 1.0 - ((alive/1000)/bomb_explosion_time);
+				let brightness = ((255-128) * (Math.sin(alive/(150*blink)) ) + 1.0) / 2;
+				brightness = parseInt(brightness);
+				
+				if ( alive/1000 >= bomb_explosion_time ) {
+					delete bombs[b];
+					
+					let fire_positions = [b];
+
+					let blocked_up = blocked_down = blocked_left = blocked_right = false;
+					for (let i = 0; i < bomb_exlosion_distance+1; i++) {
+
+						if ( ! blocked_left ) {
+							if ( p[0]-i < 0 ) {
+								blocked_left = true;
+							}
+							else {
+								let r = getIndex(p[0]-i, p[1]);
+
+								if ( bombs[r] ) {
+									bombs[r] -= bomb_explosion_time * 1000;
+								}
+
+								if ( level1[r] == BREAKABLE || level1[r] == COIN ) {
+									level1[r] = SPACE;
+									blocked_left = true;
+								}
+								else if ( level1[r] == WALL ) {
+									blocked_left = true;
+								}
+								else {
+									fire[r] = current_time;
+								}
+							}
+
+						}
+
+						if ( ! blocked_right ) {
+							if ( p[0]+i >= tiles_x ) {
+								blocked_right = true;
+							}
+							else {
+								r = getIndex(p[0]+i, p[1]);
+
+								if ( bombs[r] ) {
+									bombs[r] -= bomb_explosion_time * 1000;
+								}
+
+								if ( level1[r] == BREAKABLE || level1[r] == COIN ) {
+									level1[r] = SPACE;
+									blocked_right = true;
+								}
+								else if ( level1[r] == WALL ) { 
+									blocked_right = true;
+								}
+								else {
+									fire[r] = current_time;
+								}
+							}
+						}
+
+						if ( ! blocked_up ) {
+							if ( p[1]-i < 0 ) {
+								blocked_up = true;
+							}
+							else {
+								r = getIndex(p[0], p[1]-i);
+
+								if ( bombs[r] ) {
+									bombs[r] -= bomb_explosion_time * 1000;
+								}
+
+								if ( level1[r] == BREAKABLE || level1[r] == COIN ) {
+									level1[r] = SPACE;
+									blocked_up = true;
+								}
+								else if ( level1[r] == WALL ) {
+									blocked_up = true;
+								}
+								else {
+									fire[r] = current_time;
+								}
+							}
+						}
+
+						if ( ! blocked_down ) {
+							if ( p[1]+1 >= tiles_y ) {
+								blocked_down = true;
+							}
+							else {
+								r = getIndex(p[0], p[1]+i);
+
+								if ( bombs[r] ) {
+									bombs[r] -= (bomb_explosion_time * 1000);
+								}
+
+								if ( level1[r] == BREAKABLE || level1[r] == COIN ) {
+									level1[r] = SPACE;
+									blocked_down = true;
+								}
+								else if ( level1[r] == WALL ) {
+									blocked_down = true;
+								}
+								else {
+									fire[r] = current_time;
+								}
+							}
+						}
+					}
+				}
+				else {
+					ctx.fillStyle = "rgb("+(128+brightness)+", 32, 32)";
+					ctx.fillRect(p[0] * tile_width, p[1] * tile_height, tile_width, tile_height);
+				}
+				ctx.restore();
+			});
+
+			Object.keys(fire).forEach(function(f, i) {
+				ctx.save()
+				let p = getCoords(f);
+				let time = fire[f];
+				let alive = current_time - time;
+
+				let blink = 1.0 - ((alive/1000)/fire_ttl) ;
+				let color = "rgb("+parseInt(255 * blink)+", "+parseInt(255 * blink) + ", 0)";
+
+				if ( alive/1000 >= fire_ttl ) {
+					delete fire[f];
+				}
+				else {
+					ctx.fillStyle = color;
+					ctx.fillRect(p[0] * tile_width, p[1] * tile_height, tile_width, tile_height);
+				}
+				ctx.restore()
+			});
+
+		
+			level1.forEach(function(t, i) {
+				ctx.save()
+
+				let style = TILE_STYLE[t];
+				let p = getCoords(i);
+
+				ctx.fillStyle = style;
+				ctx.fillRect(p[0] * tile_width, p[1] * tile_height, tile_width, tile_height );
+
+				ctx.restore();
+			});
+
+			
+
+			ctx.save();
+			ctx.fillStyle = "#FFF";
+			ctx.fillRect(player_x * tile_width, player_y * tile_height, tile_width, tile_height);
+			ctx.restore();
+
+			keydown = {};
+			window.requestAnimationFrame(updateAndRender);	
+		}
+
+
+		updateAndRender();
+		
+	};
+
+	</script>
+</head>
+<body>
+<canvas id='ct'></canvas>
+</body>
+</html>
