@@ -7,3 +7,4 @@
 * Yellow squares are coins that boost your bombs and spread
 * Purple are breakable
 * White is you
+* Green are the potential enemies that arent working yet :(

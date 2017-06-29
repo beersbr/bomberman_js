@@ -15,14 +15,16 @@
     const COIN        = 2;
     const WALL        = 3;
     const BREAKABLE   = 4;
-    const SPAWN_POINT = 5
+    const SPAWN_POINT = 5;
+    const ENEMY       = 6;
 
     const TILE_STYLE = {
-    	[SPACE]:     "rgba(255, 255, 255, 0.0)",
-    	[COIN]:      "rgba(255, 200, 16, 1.0)",
-    	[WALL]:      "rgba(128, 128, 128, 1.0)",
-    	[BREAKABLE]: "rgba(200, 0, 200, 1.0)",
-    	[SPAWN_POINT]: "rgba(255, 255, 255, 0.0)"
+    	[SPACE]:       "rgba(255, 255, 255, 0.0)",
+    	[COIN]:        "rgba(255, 200, 16, 1.0)",
+    	[WALL]:        "rgba(128, 128, 128, 1.0)",
+    	[BREAKABLE]:   "rgba(200, 0, 200, 1.0)",
+    	[SPAWN_POINT]: "rgba(255, 255, 255, 0.0)",
+    	[ENEMY]:       "rgba(16, 255, 16, 1.0)"
     }
 
 	let level1 = [0, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0,
@@ -70,7 +72,7 @@
 		let fire_ttl = 1.0;
 
 		let enemy_ai_time = 0.8;
-		let enemy_spawn_chance = 0.05;
+		let enemy_spawn_chance = 0.005;
 
 		let keydown = {};
 		window.onkeydown = function(evt){
@@ -274,12 +276,52 @@
 				ctx.restore()
 			});
 
+
+			Object.keys(enemies).forEach(function(e, i) {
+				ctx.save();
+
+
+				if ( current_time - enemies[e] > enemy_ai_time ) { 
+
+					let direction = parseInt(Math.random() * 10) % 4;
+					let nx = ny = 0;
+
+					switch ( direction ) {
+						case 0:
+							ny -= 1;
+							break;
+						case 1:
+							ny += 1;
+							break;
+						case 2:
+							nx += 1;
+							break;
+						case 3:
+							nx -= 1;
+							break;
+					}
+
+				}
+
+				// ctx.fillRect(p[0] * tile_width, p[1] * tile_height, tile_width, tile_height );
+
+				ctx.restore();
+
+			});
 		
+
 			level1.forEach(function(t, i) {
 				ctx.save()
 
 				let style = TILE_STYLE[t];
 				let p = getCoords(i);
+
+				if ( t == SPAWN_POINT ) {
+					if ( Math.random() < enemy_spawn_chance ) { 
+						enemies[i] = current_time;
+						level1[i] = ENEMY;
+					}
+				}
 
 				ctx.fillStyle = style;
 				ctx.fillRect(p[0] * tile_width, p[1] * tile_height, tile_width, tile_height );
@@ -287,7 +329,7 @@
 				ctx.restore();
 			});
 
-			
+
 
 			ctx.save();
 			ctx.fillStyle = "#FFF";
